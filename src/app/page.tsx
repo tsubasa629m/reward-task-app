@@ -12,10 +12,8 @@ import {
   Settings,
   PlusCircle,
   MinusCircle,
-  PartyPopper,
   ShieldCheck,
   X,
-  Eye,
   Coins,
   Delete,
 } from 'lucide-react';
@@ -24,7 +22,7 @@ import confetti from 'canvas-confetti';
 /* ============================================================
  * 型定義
  * ==========================================================*/
-type TicketStatus = 'unused' | 'pending' | 'used';
+type TicketStatus = 'unused' | 'used';
 
 interface Task {
   id: string;
@@ -177,9 +175,13 @@ function EmojiPicker({
  * PINロック解除モーダル
  * ==========================================================*/
 function PinModal({
+  title = '保護者用PIN',
+  subtitle,
   onClose,
   onSuccess,
 }: {
+  title?: string;
+  subtitle?: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -215,7 +217,7 @@ function PinModal({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-purple-600">
             <Lock className="h-6 w-6" />
-            <h2 className="text-lg font-black">保護者用PIN</h2>
+            <h2 className="text-lg font-black">{title}</h2>
           </div>
           <button
             onClick={onClose}
@@ -224,6 +226,12 @@ function PinModal({
             <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>
+
+        {subtitle && (
+          <p className="mb-4 rounded-2xl bg-purple-50 px-3 py-2 text-center text-sm font-bold text-purple-500">
+            {subtitle}
+          </p>
+        )}
 
         <div className="mb-5 flex justify-center gap-3">
           {[0, 1, 2, 3].map((i) => (
@@ -270,46 +278,6 @@ function PinModal({
             className="grid place-items-center rounded-2xl bg-gray-100 py-3 active:scale-95 hover:bg-gray-200"
           >
             <Delete className="mx-auto h-5 w-5 text-gray-500" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
- * チケット使用確認モーダル
- * ==========================================================*/
-function UseTicketModal({
-  ticket,
-  onCancel,
-  onConfirm,
-}: {
-  ticket: Ticket;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-[2rem] bg-white p-6 text-center shadow-2xl">
-        <div className="mx-auto mb-3 grid h-20 w-20 place-items-center rounded-full bg-yellow-100 text-4xl">
-          {ticket.emoji}
-        </div>
-        <h2 className="mb-1 text-xl font-black text-gray-700">「{ticket.title}」</h2>
-        <p className="mb-5 text-lg font-bold text-pink-500">親に見せてね！</p>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 rounded-2xl bg-gray-100 py-3 font-bold text-gray-500 active:scale-95 hover:bg-gray-200"
-          >
-            やめる
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 rounded-2xl bg-gradient-to-r from-pink-400 to-orange-400 py-3 font-bold text-white shadow-lg active:scale-95"
-          >
-            <Eye className="mr-1 inline h-5 w-5" />
-            見せた！
           </button>
         </div>
       </div>
@@ -372,7 +340,9 @@ function ChildView({
               {task.emoji}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-bold text-gray-700">{task.title}</p>
+              <p className="whitespace-normal break-words text-base font-bold text-gray-700">
+                {task.title}
+              </p>
               <p className="text-sm font-semibold text-orange-400">+{task.points}pt</p>
             </div>
             <button
@@ -413,7 +383,9 @@ function ChildView({
                   {r.emoji}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-bold text-gray-700">{r.title}</p>
+                  <p className="whitespace-normal break-words text-base font-bold text-gray-700">
+                    {r.title}
+                  </p>
                   <p className="text-sm font-semibold text-blue-400">{r.cost}pt</p>
                 </div>
                 <button
@@ -454,14 +426,14 @@ function ChildView({
               key={t.id}
               className="flex items-center gap-3 rounded-[1.75rem] border-4 border-dashed border-yellow-300 bg-yellow-50 p-4 shadow"
             >
-              <div className="text-3xl">{t.emoji}</div>
+              <div className="shrink-0 text-3xl">{t.emoji}</div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-bold text-gray-700">{t.title}</p>
-                <p className="text-xs font-semibold text-yellow-600">
-                  {t.status === 'pending' ? 'かくにんまち…' : 'つかえるよ！'}
+                <p className="whitespace-normal break-words text-base font-bold text-gray-700">
+                  {t.title}
                 </p>
+                <p className="text-xs font-semibold text-yellow-600">つかえるよ！</p>
               </div>
-              {t.status === 'unused' && (
+              {t.status !== 'used' && (
                 <button
                   onClick={() => onRequestUseTicket(t)}
                   className="shrink-0 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-400 px-4 py-2.5 text-sm font-black text-white shadow active:scale-95"
@@ -488,7 +460,6 @@ function ParentSettingsModal({
   onAddReward,
   onUpdateReward,
   onDeleteReward,
-  onApproveTicket,
   onAdjustPoints,
   onClose,
 }: {
@@ -499,7 +470,6 @@ function ParentSettingsModal({
   onAddReward: (title: string, cost: number, emoji: string) => void;
   onUpdateReward: (id: string, patch: { title?: string; cost?: number }) => void;
   onDeleteReward: (id: string) => void;
-  onApproveTicket: (id: string) => void;
   onAdjustPoints: (amount: number) => void;
   onClose: () => void;
 }) {
@@ -512,8 +482,6 @@ function ParentSettingsModal({
   const [newRewardEmoji, setNewRewardEmoji] = useState(REWARD_EMOJIS[0]);
 
   const [customAmount, setCustomAmount] = useState(10);
-
-  const pendingTickets = state.tickets.filter((t) => t.status === 'pending');
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-3 sm:p-6">
@@ -538,29 +506,6 @@ function ParentSettingsModal({
 
         {/* 本文（スクロール） */}
         <div className="flex-1 space-y-6 overflow-y-auto p-5">
-          {/* 承認待ちチケット */}
-          {pendingTickets.length > 0 && (
-            <section className="rounded-[1.75rem] bg-orange-100 p-4 shadow ring-2 ring-orange-300">
-              <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-orange-600">
-                <PartyPopper className="h-5 w-5" /> つかったチケットのしょうにん
-              </h2>
-              <div className="space-y-2">
-                {pendingTickets.map((t) => (
-                  <div key={t.id} className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow">
-                    <div className="text-2xl">{t.emoji}</div>
-                    <p className="flex-1 truncate font-bold text-gray-700">{t.title}</p>
-                    <button
-                      onClick={() => onApproveTicket(t.id)}
-                      className="rounded-xl bg-gradient-to-r from-green-400 to-emerald-500 px-4 py-2 text-sm font-black text-white shadow active:scale-95"
-                    >
-                      承認する
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
           {/* ポイント手動調整 */}
           <section className="rounded-[1.75rem] bg-white p-4 shadow-lg">
             <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-gray-700">
@@ -781,9 +726,11 @@ function ParentSettingsModal({
 export default function Page() {
   const [state, setState] = useState<AppState>(defaultState);
   const [loaded, setLoaded] = useState(false);
-  const [showPin, setShowPin] = useState(false);
   const [showParentSettings, setShowParentSettings] = useState(false);
-  const [useTicketTarget, setUseTicketTarget] = useState<Ticket | null>(null);
+  /* PINモーダルの要求内容：保護者設定を開くためのPINか、チケット使用を認証するためのPINか */
+  const [pinRequest, setPinRequest] = useState<
+    { purpose: 'settings' } | { purpose: 'useTicket'; ticket: Ticket } | null
+  >(null);
 
   /* 初回読み込み */
   useEffect(() => {
@@ -911,30 +858,32 @@ export default function Page() {
   };
 
   /* ---------- チケット関連 ---------- */
-  const requestUseTicket = (ticket: Ticket) => setUseTicketTarget(ticket);
+  /* 「つかう」ボタン → 中間確認なしで直接PIN入力モーダルを要求する */
+  const requestUseTicket = (ticket: Ticket) => setPinRequest({ purpose: 'useTicket', ticket });
 
-  const confirmUseTicket = () => {
-    if (!useTicketTarget) return;
-    const id = useTicketTarget.id;
-    setState((prev) => ({
-      ...prev,
-      tickets: prev.tickets.map((t) => (t.id === id ? { ...t, status: 'pending' } : t)),
-    }));
-    setUseTicketTarget(null);
-    fireConfetti();
-  };
-
-  const approveTicket = (ticketId: string) => {
+  /* PIN認証が通った瞬間に、そのチケットを即使用済みにする */
+  const useTicketNow = (ticketId: string) => {
     setState((prev) => {
       const ticket = prev.tickets.find((t) => t.id === ticketId);
-      if (!ticket) return prev;
+      if (!ticket || ticket.status === 'used') return prev;
       const next: AppState = {
         ...prev,
         tickets: prev.tickets.map((t) => (t.id === ticketId ? { ...t, status: 'used' } : t)),
       };
-      return addHistory(`「${ticket.title}」をつかったよ（承認済み）`, 0, next);
+      return addHistory(`「${ticket.title}」をつかったよ！`, 0, next);
     });
     fireBigConfetti();
+  };
+
+  /* PINモーダルの認証成功時：要求の種類ごとに処理を振り分ける */
+  const handlePinSuccess = () => {
+    if (!pinRequest) return;
+    if (pinRequest.purpose === 'settings') {
+      setShowParentSettings(true);
+    } else if (pinRequest.purpose === 'useTicket') {
+      useTicketNow(pinRequest.ticket.id);
+    }
+    setPinRequest(null);
   };
 
   /* ---------- ポイント調整 ---------- */
@@ -966,17 +915,20 @@ export default function Page() {
         onCompleteTask={completeTask}
         onExchangeReward={exchangeReward}
         onRequestUseTicket={requestUseTicket}
-        onOpenPin={() => setShowPin(true)}
+        onOpenPin={() => setPinRequest({ purpose: 'settings' })}
       />
 
-      {/* 鍵アイコン → PIN認証モーダル */}
-      {showPin && (
+      {/* PIN認証モーダル：保護者設定を開く時／チケットを使用する時の両方で使う */}
+      {pinRequest && (
         <PinModal
-          onClose={() => setShowPin(false)}
-          onSuccess={() => {
-            setShowPin(false);
-            setShowParentSettings(true);
-          }}
+          title={pinRequest.purpose === 'useTicket' ? 'チケット使用のPIN' : '保護者用PIN'}
+          subtitle={
+            pinRequest.purpose === 'useTicket'
+              ? `「${pinRequest.ticket.title}」を使用します。保護者の方がPINを入力してください。`
+              : undefined
+          }
+          onClose={() => setPinRequest(null)}
+          onSuccess={handlePinSuccess}
         />
       )}
 
@@ -990,18 +942,8 @@ export default function Page() {
           onAddReward={addReward}
           onUpdateReward={updateReward}
           onDeleteReward={deleteReward}
-          onApproveTicket={approveTicket}
           onAdjustPoints={adjustPoints}
           onClose={() => setShowParentSettings(false)}
-        />
-      )}
-
-      {/* チケット使用確認モーダル */}
-      {useTicketTarget && (
-        <UseTicketModal
-          ticket={useTicketTarget}
-          onCancel={() => setUseTicketTarget(null)}
-          onConfirm={confirmUseTicket}
         />
       )}
     </div>
