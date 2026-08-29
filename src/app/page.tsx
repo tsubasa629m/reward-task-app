@@ -74,6 +74,10 @@ const PARENT_PIN = '0000';
 const TASK_EMOJIS = ['🪥', '👕', '🧹', '📚', '🛏️', '🍽️', '🎒', '🐶', '🚿', '✏️'];
 const REWARD_EMOJIS = ['🎁', '🍦', '📺', '🎮', '🎨', '🚲', '🎡', '🍕', '🧸', '🍭'];
 
+/* すべての入力欄で共通の「文字がくっきり見える」スタイル */
+const INPUT_STYLE =
+  'border-2 border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none';
+
 function uid(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -104,6 +108,59 @@ function defaultState(): AppState {
     tickets: [],
     history: [],
     lastResetDate: getTodayStr(),
+  };
+}
+
+/**
+ * localStorage から読み込んだ生データを安全に AppState へ変換する。
+ * - 各フィールドを個別に検証し、型が壊れている／存在しないフィールドだけを
+ *   デフォルト値で補う（保存済みの配列が空 [] の場合はユーザーの意図として尊重し、
+ *   デフォルトのタスクやご褒美で上書きしない）。
+ * - こうすることで、アプリのアップデートで新しいフィールドが増えたり
+ *   一部のデータ形式が変わったりしても、既存の保存データが丸ごと
+ *   初期データに巻き戻ってしまうことを防ぐ。
+ */
+function hydrateState(raw: unknown): AppState {
+  const fallback = defaultState();
+  if (!raw || typeof raw !== 'object') return fallback;
+  const parsed = raw as Partial<AppState>;
+
+  const isValidTask = (t: unknown): t is Task =>
+    !!t &&
+    typeof t === 'object' &&
+    typeof (t as Task).id === 'string' &&
+    typeof (t as Task).title === 'string' &&
+    typeof (t as Task).points === 'number';
+
+  const isValidReward = (r: unknown): r is Reward =>
+    !!r &&
+    typeof r === 'object' &&
+    typeof (r as Reward).id === 'string' &&
+    typeof (r as Reward).title === 'string' &&
+    typeof (r as Reward).cost === 'number';
+
+  const isValidTicket = (t: unknown): t is Ticket =>
+    !!t &&
+    typeof t === 'object' &&
+    typeof (t as Ticket).id === 'string' &&
+    typeof (t as Ticket).title === 'string';
+
+  const isValidHistory = (h: unknown): h is HistoryEntry =>
+    !!h && typeof h === 'object' && typeof (h as HistoryEntry).id === 'string';
+
+  return {
+    points:
+      typeof parsed.points === 'number' && Number.isFinite(parsed.points)
+        ? parsed.points
+        : fallback.points,
+    tasks: Array.isArray(parsed.tasks) ? parsed.tasks.filter(isValidTask) : fallback.tasks,
+    rewards: Array.isArray(parsed.rewards) ? parsed.rewards.filter(isValidReward) : fallback.rewards,
+    tickets: Array.isArray(parsed.tickets) ? parsed.tickets.filter(isValidTicket) : fallback.tickets,
+    history: Array.isArray(parsed.history) ? parsed.history.filter(isValidHistory) : fallback.history,
+    lastResetDate:
+      typeof parsed.lastResetDate === 'string' && parsed.lastResetDate.length > 0
+        ? parsed.lastResetDate
+        : fallback.lastResetDate,
   };
 }
 
@@ -308,7 +365,7 @@ function ChildView({
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="h-8 w-8 text-pink-400" />
-          <h1 className="text-2xl font-black text-gray-700">やること</h1>
+          <h1 className="text-2xl font-black text-gray-700">きょうのタスク</h1>
         </div>
         <div className="flex items-center gap-2">
           <PointsBadge points={state.points} />
@@ -528,7 +585,7 @@ function ParentSettingsModal({
                 type="number"
                 value={customAmount}
                 onChange={(e) => setCustomAmount(Number(e.target.value))}
-                className="w-20 rounded-xl border-2 border-gray-200 px-2 py-2 text-center font-bold"
+                className={`w-20 rounded-xl px-2 py-2 text-center font-bold ${INPUT_STYLE}`}
               />
               <button
                 onClick={() => onAdjustPoints(customAmount)}
@@ -557,13 +614,13 @@ function ParentSettingsModal({
                   <input
                     value={task.title}
                     onChange={(e) => onUpdateTask(task.id, { title: e.target.value })}
-                    className="w-0 min-w-0 flex-1 truncate rounded-lg border-2 border-transparent bg-transparent px-2 py-1 text-sm font-bold text-gray-700 focus:border-blue-200 focus:bg-white"
+                    className={`w-0 min-w-0 flex-1 rounded-lg px-2 py-1 text-sm font-bold ${INPUT_STYLE}`}
                   />
                   <input
                     type="number"
                     value={task.points}
                     onChange={(e) => onUpdateTask(task.id, { points: Number(e.target.value) })}
-                    className="w-16 shrink-0 rounded-lg border-2 border-gray-200 px-1 py-1 text-center text-sm font-bold"
+                    className={`w-16 shrink-0 rounded-lg px-1 py-1 text-center text-sm font-bold ${INPUT_STYLE}`}
                   />
                   <span className="shrink-0 text-xs text-gray-400">pt</span>
                   <button
@@ -587,13 +644,13 @@ function ParentSettingsModal({
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                   placeholder="タスク名"
-                  className="flex-1 rounded-xl border-2 border-blue-100 px-3 py-2 text-sm font-semibold"
+                  className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold ${INPUT_STYLE}`}
                 />
                 <input
                   type="number"
                   value={newTaskPoints}
                   onChange={(e) => setNewTaskPoints(Number(e.target.value))}
-                  className="w-24 rounded-xl border-2 border-blue-100 px-3 py-2 text-center text-sm font-semibold"
+                  className={`w-24 rounded-xl px-3 py-2 text-center text-sm font-semibold ${INPUT_STYLE}`}
                 />
               </div>
               <div className="mb-2">
@@ -625,13 +682,13 @@ function ParentSettingsModal({
                   <input
                     value={r.title}
                     onChange={(e) => onUpdateReward(r.id, { title: e.target.value })}
-                    className="w-0 min-w-0 flex-1 truncate rounded-lg border-2 border-transparent bg-transparent px-2 py-1 text-sm font-bold text-gray-700 focus:border-purple-200 focus:bg-white"
+                    className={`w-0 min-w-0 flex-1 rounded-lg px-2 py-1 text-sm font-bold ${INPUT_STYLE}`}
                   />
                   <input
                     type="number"
                     value={r.cost}
                     onChange={(e) => onUpdateReward(r.id, { cost: Number(e.target.value) })}
-                    className="w-16 shrink-0 rounded-lg border-2 border-gray-200 px-1 py-1 text-center text-sm font-bold"
+                    className={`w-16 shrink-0 rounded-lg px-1 py-1 text-center text-sm font-bold ${INPUT_STYLE}`}
                   />
                   <span className="shrink-0 text-xs text-gray-400">pt</span>
                   <button
@@ -655,13 +712,13 @@ function ParentSettingsModal({
                   value={newRewardTitle}
                   onChange={(e) => setNewRewardTitle(e.target.value)}
                   placeholder="ごほうび名"
-                  className="flex-1 rounded-xl border-2 border-purple-100 px-3 py-2 text-sm font-semibold"
+                  className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold ${INPUT_STYLE}`}
                 />
                 <input
                   type="number"
                   value={newRewardCost}
                   onChange={(e) => setNewRewardCost(Number(e.target.value))}
-                  className="w-24 rounded-xl border-2 border-purple-100 px-3 py-2 text-center text-sm font-semibold"
+                  className={`w-24 rounded-xl px-3 py-2 text-center text-sm font-semibold ${INPUT_STYLE}`}
                 />
               </div>
               <div className="mb-2">
@@ -732,33 +789,51 @@ export default function Page() {
     { purpose: 'settings' } | { purpose: 'useTicket'; ticket: Ticket } | null
   >(null);
 
-  /* 初回読み込み */
+  /*
+   * 初回読み込み：マウント時に一度だけ実行される。
+   * - localStorage に保存済みデータがあれば、必ずそれを最優先で復元する
+   *   （hydrateState が形式チェックとフィールド補完を行うので、
+   *   アプリのアップデートで多少データ形式が変わっても初期データに
+   *   巻き戻らない）。
+   * - 保存データが存在しない「本当の初回アクセス時」だけ、
+   *   useState の初期値であるデフォルトデータをそのまま使う。
+   * - 日付が変わっていたら「今日やったこと」フラグだけをリセットする
+   *   （ポイントやタスク・ご褒美の中身には一切手を触れない）。
+   */
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed: AppState = JSON.parse(raw);
+      if (raw !== null) {
+        const parsedJson = JSON.parse(raw);
+        const restored = hydrateState(parsedJson);
         const today = getTodayStr();
-        if (parsed.lastResetDate !== today) {
-          parsed.tasks = parsed.tasks.map((t) => ({ ...t, doneToday: false }));
-          parsed.lastResetDate = today;
+        if (restored.lastResetDate !== today) {
+          restored.tasks = restored.tasks.map((t) => ({ ...t, doneToday: false }));
+          restored.lastResetDate = today;
         }
-        setState(parsed);
+        setState(restored);
       }
+      // raw === null の場合（保存データがまだ存在しない初回アクセス）は
+      // useState(defaultState) で設定済みの初期値をそのまま使う。
     } catch (e) {
-      console.error('failed to load state', e);
+      console.error('保存データの読み込みに失敗しました。初期データを使用します。', e);
     } finally {
       setLoaded(true);
     }
   }, []);
 
-  /* 保存 */
+  /*
+   * 保存：state が変化するたびに localStorage へ即時保存する。
+   * loaded フラグが立つ前（初回読み込みが完了する前）は保存しないことで、
+   * 読み込み前のデフォルト値で保存済みデータを誤って上書きしてしまう
+   * 事故を防いでいる。
+   */
   useEffect(() => {
     if (!loaded) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
-      console.error('failed to save state', e);
+      console.error('保存データの書き込みに失敗しました', e);
     }
   }, [state, loaded]);
 
