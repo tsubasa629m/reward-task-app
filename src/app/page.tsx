@@ -308,7 +308,7 @@ function ChildView({
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="h-8 w-8 text-pink-400" />
-          <h1 className="text-2xl font-black text-gray-700">きょうのタスク</h1>
+          <h1 className="text-2xl font-black text-gray-700">やること</h1>
         </div>
         <div className="flex items-center gap-2">
           <PointsBadge points={state.points} />
